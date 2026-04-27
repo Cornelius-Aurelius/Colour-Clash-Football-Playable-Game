@@ -1,0 +1,358 @@
+import React, { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Trophy, Timer, RotateCcw, Eye, Goal, Users, AlertTriangle } from "lucide-react";
+
+const LEVELS = {
+  easy: {
+    label: "Easy: Ages 6–8",
+    seconds: 12,
+    players: 6,
+    decoys: 2,
+    cueText: "Find your teammate by the BIG pattern.",
+  },
+  standard: {
+    label: "Standard: Ages 9–12",
+    seconds: 8,
+    players: 8,
+    decoys: 3,
+    cueText: "Find your teammate by pattern, socks, or number.",
+  },
+  advanced: {
+    label: "Advanced: Ages 13–18",
+    seconds: 5,
+    players: 10,
+    decoys: 4,
+    cueText: "Match speed: ignore colour, scan fast.",
+  },
+};
+
+const cues = [
+  {
+    name: "STRIPES",
+    instruction: "Pass to the player with STRIPES.",
+    key: "stripe",
+    motto: "Look past the colour. Find the stripes.",
+  },
+  {
+    name: "HOOPS",
+    instruction: "Pass to the player with HOOPS.",
+    key: "hoop",
+    motto: "Colour can lie. Patterns tell the truth.",
+  },
+  {
+    name: "WHITE SOCKS",
+    instruction: "Pass to the player wearing WHITE SOCKS.",
+    key: "whiteSocks",
+    motto: "Scan the whole kit, not just the shirt.",
+  },
+  {
+    name: "BLACK ARMBAND",
+    instruction: "Pass to the player with a BLACK ARMBAND.",
+    key: "armband",
+    motto: "Small clues make smart footballers.",
+  },
+  {
+    name: "LIGHT KIT",
+    instruction: "Pass to the LIGHTER kit.",
+    key: "lightKit",
+    motto: "Use contrast when colours clash.",
+  },
+];
+
+const confusingColours = [
+  "#7b1e1e",
+  "#31552b",
+  "#664229",
+  "#5b3d25",
+  "#8a3b20",
+  "#3d4b30",
+  "#6e4f26",
+];
+
+function randomItem(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+function makePlayer(id, targetCue, forceTarget = false) {
+  const shirt = randomItem(confusingColours);
+  const shorts = randomItem(["#2b2b2b", "#3a2a1f", "#1f3322", "#5a3b2a"]);
+  const hasCue = forceTarget;
+
+  return {
+    id,
+    shirt,
+    shorts,
+    number: Math.floor(Math.random() * 90) + 1,
+    stripe: targetCue.key === "stripe" ? hasCue : Math.random() < 0.25,
+    hoop: targetCue.key === "hoop" ? hasCue : Math.random() < 0.25,
+    whiteSocks: targetCue.key === "whiteSocks" ? hasCue : Math.random() < 0.25,
+    armband: targetCue.key === "armband" ? hasCue : Math.random() < 0.25,
+    lightKit: targetCue.key === "lightKit" ? hasCue : Math.random() < 0.25,
+    isTarget: forceTarget,
+    x: 10 + Math.random() * 80,
+    y: 15 + Math.random() * 70,
+  };
+}
+
+function createRound(levelKey) {
+  const level = LEVELS[levelKey];
+  const cue = randomItem(cues);
+  const targetIndex = Math.floor(Math.random() * level.players);
+  const players = Array.from({ length: level.players }, (_, i) => makePlayer(i, cue, i === targetIndex));
+
+  return {
+    cue,
+    players,
+    targetId: targetIndex,
+    seconds: level.seconds,
+    roundId: Date.now() + Math.random(),
+  };
+}
+
+function PlayerIcon({ player, onClick, disabled }) {
+  const kitStyle = player.lightKit
+    ? { background: "linear-gradient(180deg, #d8c9a3 0%, #bca36b 100%)" }
+    : { background: player.shirt };
+
+  return (
+    <motion.button
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      whileHover={!disabled ? { scale: 1.08 } : undefined}
+      whileTap={!disabled ? { scale: 0.94 } : undefined}
+      onClick={onClick}
+      disabled={disabled}
+      className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none"
+      style={{ left: `${player.x}%`, top: `${player.y}%` }}
+      aria-label={`Player ${player.number}`}
+    >
+      <div className="relative flex flex-col items-center">
+        <div className="h-5 w-5 rounded-full bg-neutral-200 border-2 border-neutral-900 shadow" />
+        <div
+          className="relative h-12 w-11 rounded-t-xl border-2 border-neutral-900 overflow-hidden shadow-md"
+          style={kitStyle}
+        >
+          {player.stripe && (
+            <div className="absolute inset-0 flex justify-around opacity-90">
+              <span className="h-full w-1.5 bg-neutral-100" />
+              <span className="h-full w-1.5 bg-neutral-100" />
+              <span className="h-full w-1.5 bg-neutral-100" />
+            </div>
+          )}
+          {player.hoop && (
+            <div className="absolute inset-0 flex flex-col justify-around opacity-90">
+              <span className="h-1.5 w-full bg-neutral-100" />
+              <span className="h-1.5 w-full bg-neutral-100" />
+              <span className="h-1.5 w-full bg-neutral-100" />
+            </div>
+          )}
+          {player.armband && <div className="absolute right-0 top-4 h-2 w-4 bg-black" />}
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+            {player.number}
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <div className="h-7 w-4 rounded-b-md border-x-2 border-b-2 border-neutral-900" style={{ background: player.shorts }} />
+          <div className="h-7 w-4 rounded-b-md border-x-2 border-b-2 border-neutral-900" style={{ background: player.shorts }} />
+        </div>
+        <div className="flex gap-2 -mt-1">
+          <div className={`h-3 w-2 rounded-b ${player.whiteSocks ? "bg-white" : "bg-neutral-800"} border border-neutral-900`} />
+          <div className={`h-3 w-2 rounded-b ${player.whiteSocks ? "bg-white" : "bg-neutral-800"} border border-neutral-900`} />
+        </div>
+      </div>
+    </motion.button>
+  );
+}
+
+export default function ColourClashFootballGame() {
+  const [levelKey, setLevelKey] = useState("easy");
+  const [game, setGame] = useState(() => createRound("easy"));
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [round, setRound] = useState(1);
+  const [message, setMessage] = useState("Scan the kit. Find your teammate.");
+  const [selected, setSelected] = useState(null);
+  const [mistakes, setMistakes] = useState(0);
+
+  const target = useMemo(() => game.players.find((p) => p.id === game.targetId), [game]);
+
+  function nextRound(nextLevel = levelKey) {
+    setSelected(null);
+    setGame(createRound(nextLevel));
+    setRound((r) => r + 1);
+  }
+
+  function choosePlayer(player) {
+    if (selected !== null) return;
+    setSelected(player.id);
+
+    if (player.isTarget) {
+      const bonus = streak >= 2 ? 2 : 1;
+      setScore((s) => s + bonus);
+      setStreak((s) => s + 1);
+      setMessage(bonus === 2 ? "Brilliant scan! Streak bonus." : "Correct pass! You found the clue.");
+      setTimeout(() => nextRound(), 850);
+    } else {
+      setMistakes((m) => m + 1);
+      setStreak(0);
+      setMessage("Wrong team. Reset: what clue could you have used?");
+      setTimeout(() => nextRound(), 1300);
+    }
+  }
+
+  function changeLevel(key) {
+    setLevelKey(key);
+    setScore(0);
+    setStreak(0);
+    setRound(1);
+    setMistakes(0);
+    setMessage(LEVELS[key].cueText);
+    setSelected(null);
+    setGame(createRound(key));
+  }
+
+  function resetGame() {
+    setScore(0);
+    setStreak(0);
+    setRound(1);
+    setMistakes(0);
+    setMessage("Scan the kit. Find your teammate.");
+    setSelected(null);
+    setGame(createRound(levelKey));
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-stone-950 p-4 text-white">
+      <div className="mx-auto max-w-6xl space-y-4">
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
+                <Eye className="h-4 w-4" /> Colour-blind football awareness game
+              </div>
+              <h1 className="text-3xl font-black tracking-tight md:text-5xl">COLOUR CLASH FOOTBALL</h1>
+              <p className="mt-2 max-w-2xl text-white/85">
+                Colours may trick you. Find your teammate by scanning for patterns, socks, armbands, numbers, contrast, and movement.
+              </p>
+            </div>
+            <Card className="rounded-3xl border-white/15 bg-black/25 text-white shadow-xl">
+              <CardContent className="grid grid-cols-3 gap-4 p-4 text-center">
+                <div>
+                  <Trophy className="mx-auto mb-1 h-5 w-5" />
+                  <div className="text-2xl font-black">{score}</div>
+                  <div className="text-xs text-white/70">score</div>
+                </div>
+                <div>
+                  <Goal className="mx-auto mb-1 h-5 w-5" />
+                  <div className="text-2xl font-black">{round}</div>
+                  <div className="text-xs text-white/70">round</div>
+                </div>
+                <div>
+                  <AlertTriangle className="mx-auto mb-1 h-5 w-5" />
+                  <div className="text-2xl font-black">{mistakes}</div>
+                  <div className="text-xs text-white/70">mistakes</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </motion.div>
+
+        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+          <div className="space-y-4">
+            <Card className="rounded-3xl border-white/15 bg-white/10 text-white shadow-xl backdrop-blur">
+              <CardContent className="space-y-3 p-4">
+                <h2 className="flex items-center gap-2 text-xl font-black"><Users className="h-5 w-5" /> Choose Age Level</h2>
+                {Object.entries(LEVELS).map(([key, level]) => (
+                  <Button
+                    key={key}
+                    onClick={() => changeLevel(key)}
+                    className={`w-full rounded-2xl py-6 text-left font-bold ${levelKey === key ? "bg-white text-green-950 hover:bg-white/90" : "bg-black/25 text-white hover:bg-black/40"}`}
+                  >
+                    {level.label}
+                  </Button>
+                ))}
+                <Button onClick={resetGame} variant="secondary" className="w-full rounded-2xl py-6 font-bold">
+                  <RotateCcw className="mr-2 h-4 w-4" /> Reset Game
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-white/15 bg-white/10 text-white shadow-xl backdrop-blur">
+              <CardContent className="space-y-3 p-4">
+                <h2 className="flex items-center gap-2 text-xl font-black"><Timer className="h-5 w-5" /> How To Play</h2>
+                <p className="text-sm text-white/85">1. Read the pass instruction.</p>
+                <p className="text-sm text-white/85">2. Ignore confusing red, green, and brown colours.</p>
+                <p className="text-sm text-white/85">3. Click the teammate with the correct visual clue.</p>
+                <p className="rounded-2xl bg-black/25 p-3 text-sm font-bold">Coach phrase: “Scan before you pass.”</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-4">
+            <Card className="rounded-3xl border-white/15 bg-white/10 text-white shadow-xl backdrop-blur">
+              <CardContent className="p-4">
+                <div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+                  <div>
+                    <div className="text-sm font-bold uppercase tracking-widest text-lime-200">Your Pass Challenge</div>
+                    <AnimatePresence mode="wait">
+                      <motion.h2
+                        key={game.roundId}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="text-2xl font-black md:text-4xl"
+                      >
+                        {game.cue.instruction}
+                      </motion.h2>
+                    </AnimatePresence>
+                    <p className="mt-1 text-white/80">{game.cue.motto}</p>
+                  </div>
+                  <div className="rounded-3xl bg-black/30 p-4 text-center">
+                    <div className="text-xs uppercase tracking-wider text-white/60">Streak</div>
+                    <div className="text-4xl font-black">{streak}</div>
+                  </div>
+                </div>
+
+                <div className="relative h-[560px] overflow-hidden rounded-[2rem] border-4 border-white/20 bg-green-700 shadow-inner">
+                  <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "linear-gradient(90deg, rgba(255,255,255,.25) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+                  <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 bg-white/50" />
+                  <div className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white/50" />
+                  <div className="absolute left-0 top-1/2 h-36 w-16 -translate-y-1/2 border-y-4 border-r-4 border-white/50" />
+                  <div className="absolute right-0 top-1/2 h-36 w-16 -translate-y-1/2 border-y-4 border-l-4 border-white/50" />
+
+                  {game.players.map((player) => (
+                    <PlayerIcon
+                      key={`${game.roundId}-${player.id}`}
+                      player={player}
+                      disabled={selected !== null}
+                      onClick={() => choosePlayer(player)}
+                    />
+                  ))}
+
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white px-5 py-2 text-center text-sm font-black text-green-950 shadow-lg">
+                    Ball at your feet — choose the teammate
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <motion.div
+              key={message}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-3xl border border-white/15 bg-black/35 p-4 text-center text-xl font-black shadow-xl"
+            >
+              {message}
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
