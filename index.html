@@ -1,358 +1,933 @@
-import React, { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Trophy, Timer, RotateCcw, Eye, Goal, Users, AlertTriangle } from "lucide-react";
-
-const LEVELS = {
-  easy: {
-    label: "Easy: Ages 6–8",
-    seconds: 12,
-    players: 6,
-    decoys: 2,
-    cueText: "Find your teammate by the BIG pattern.",
-  },
-  standard: {
-    label: "Standard: Ages 9–12",
-    seconds: 8,
-    players: 8,
-    decoys: 3,
-    cueText: "Find your teammate by pattern, socks, or number.",
-  },
-  advanced: {
-    label: "Advanced: Ages 13–18",
-    seconds: 5,
-    players: 10,
-    decoys: 4,
-    cueText: "Match speed: ignore colour, scan fast.",
-  },
-};
-
-const cues = [
-  {
-    name: "STRIPES",
-    instruction: "Pass to the player with STRIPES.",
-    key: "stripe",
-    motto: "Look past the colour. Find the stripes.",
-  },
-  {
-    name: "HOOPS",
-    instruction: "Pass to the player with HOOPS.",
-    key: "hoop",
-    motto: "Colour can lie. Patterns tell the truth.",
-  },
-  {
-    name: "WHITE SOCKS",
-    instruction: "Pass to the player wearing WHITE SOCKS.",
-    key: "whiteSocks",
-    motto: "Scan the whole kit, not just the shirt.",
-  },
-  {
-    name: "BLACK ARMBAND",
-    instruction: "Pass to the player with a BLACK ARMBAND.",
-    key: "armband",
-    motto: "Small clues make smart footballers.",
-  },
-  {
-    name: "LIGHT KIT",
-    instruction: "Pass to the LIGHTER kit.",
-    key: "lightKit",
-    motto: "Use contrast when colours clash.",
-  },
-];
-
-const confusingColours = [
-  "#7b1e1e",
-  "#31552b",
-  "#664229",
-  "#5b3d25",
-  "#8a3b20",
-  "#3d4b30",
-  "#6e4f26",
-];
-
-function randomItem(array) {
-  return array[Math.floor(Math.random() * array.length)];
-}
-
-function makePlayer(id, targetCue, forceTarget = false) {
-  const shirt = randomItem(confusingColours);
-  const shorts = randomItem(["#2b2b2b", "#3a2a1f", "#1f3322", "#5a3b2a"]);
-  const hasCue = forceTarget;
-
-  return {
-    id,
-    shirt,
-    shorts,
-    number: Math.floor(Math.random() * 90) + 1,
-    stripe: targetCue.key === "stripe" ? hasCue : Math.random() < 0.25,
-    hoop: targetCue.key === "hoop" ? hasCue : Math.random() < 0.25,
-    whiteSocks: targetCue.key === "whiteSocks" ? hasCue : Math.random() < 0.25,
-    armband: targetCue.key === "armband" ? hasCue : Math.random() < 0.25,
-    lightKit: targetCue.key === "lightKit" ? hasCue : Math.random() < 0.25,
-    isTarget: forceTarget,
-    x: 10 + Math.random() * 80,
-    y: 15 + Math.random() * 70,
-  };
-}
-
-function createRound(levelKey) {
-  const level = LEVELS[levelKey];
-  const cue = randomItem(cues);
-  const targetIndex = Math.floor(Math.random() * level.players);
-  const players = Array.from({ length: level.players }, (_, i) => makePlayer(i, cue, i === targetIndex));
-
-  return {
-    cue,
-    players,
-    targetId: targetIndex,
-    seconds: level.seconds,
-    roundId: Date.now() + Math.random(),
-  };
-}
-
-function PlayerIcon({ player, onClick, disabled }) {
-  const kitStyle = player.lightKit
-    ? { background: "linear-gradient(180deg, #d8c9a3 0%, #bca36b 100%)" }
-    : { background: player.shirt };
-
-  return (
-    <motion.button
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      whileHover={!disabled ? { scale: 1.08 } : undefined}
-      whileTap={!disabled ? { scale: 0.94 } : undefined}
-      onClick={onClick}
-      disabled={disabled}
-      className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none"
-      style={{ left: `${player.x}%`, top: `${player.y}%` }}
-      aria-label={`Player ${player.number}`}
-    >
-      <div className="relative flex flex-col items-center">
-        <div className="h-5 w-5 rounded-full bg-neutral-200 border-2 border-neutral-900 shadow" />
-        <div
-          className="relative h-12 w-11 rounded-t-xl border-2 border-neutral-900 overflow-hidden shadow-md"
-          style={kitStyle}
-        >
-          {player.stripe && (
-            <div className="absolute inset-0 flex justify-around opacity-90">
-              <span className="h-full w-1.5 bg-neutral-100" />
-              <span className="h-full w-1.5 bg-neutral-100" />
-              <span className="h-full w-1.5 bg-neutral-100" />
-            </div>
-          )}
-          {player.hoop && (
-            <div className="absolute inset-0 flex flex-col justify-around opacity-90">
-              <span className="h-1.5 w-full bg-neutral-100" />
-              <span className="h-1.5 w-full bg-neutral-100" />
-              <span className="h-1.5 w-full bg-neutral-100" />
-            </div>
-          )}
-          {player.armband && <div className="absolute right-0 top-4 h-2 w-4 bg-black" />}
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
-            {player.number}
-          </div>
-        </div>
-        <div className="flex gap-1">
-          <div className="h-7 w-4 rounded-b-md border-x-2 border-b-2 border-neutral-900" style={{ background: player.shorts }} />
-          <div className="h-7 w-4 rounded-b-md border-x-2 border-b-2 border-neutral-900" style={{ background: player.shorts }} />
-        </div>
-        <div className="flex gap-2 -mt-1">
-          <div className={`h-3 w-2 rounded-b ${player.whiteSocks ? "bg-white" : "bg-neutral-800"} border border-neutral-900`} />
-          <div className={`h-3 w-2 rounded-b ${player.whiteSocks ? "bg-white" : "bg-neutral-800"} border border-neutral-900`} />
-        </div>
-      </div>
-    </motion.button>
-  );
-}
-
-export default function ColourClashFootballGame() {
-  const [levelKey, setLevelKey] = useState("easy");
-  const [game, setGame] = useState(() => createRound("easy"));
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [round, setRound] = useState(1);
-  const [message, setMessage] = useState("Scan the kit. Find your teammate.");
-  const [selected, setSelected] = useState(null);
-  const [mistakes, setMistakes] = useState(0);
-
-  const target = useMemo(() => game.players.find((p) => p.id === game.targetId), [game]);
-
-  function nextRound(nextLevel = levelKey) {
-    setSelected(null);
-    setGame(createRound(nextLevel));
-    setRound((r) => r + 1);
-  }
-
-  function choosePlayer(player) {
-    if (selected !== null) return;
-    setSelected(player.id);
-
-    if (player.isTarget) {
-      const bonus = streak >= 2 ? 2 : 1;
-      setScore((s) => s + bonus);
-      setStreak((s) => s + 1);
-      setMessage(bonus === 2 ? "Brilliant scan! Streak bonus." : "Correct pass! You found the clue.");
-      setTimeout(() => nextRound(), 850);
-    } else {
-      setMistakes((m) => m + 1);
-      setStreak(0);
-      setMessage("Wrong team. Reset: what clue could you have used?");
-      setTimeout(() => nextRound(), 1300);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Colour Clash Football</title>
+  <style>
+    :root {
+      --bg: #07130c;
+      --panel: rgba(255, 255, 255, 0.1);
+      --panel-strong: rgba(0, 0, 0, 0.35);
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.75);
+      --line: rgba(255, 255, 255, 0.22);
+      --grass-1: #166534;
+      --grass-2: #14532d;
+      --accent: #d9f99d;
+      --danger: #fecaca;
+      --success: #bbf7d0;
+      --black: #111827;
+      --white: #ffffff;
     }
-  }
 
-  function changeLevel(key) {
-    setLevelKey(key);
-    setScore(0);
-    setStreak(0);
-    setRound(1);
-    setMistakes(0);
-    setMessage(LEVELS[key].cueText);
-    setSelected(null);
-    setGame(createRound(key));
-  }
+    * {
+      box-sizing: border-box;
+    }
 
-  function resetGame() {
-    setScore(0);
-    setStreak(0);
-    setRound(1);
-    setMistakes(0);
-    setMessage("Scan the kit. Find your teammate.");
-    setSelected(null);
-    setGame(createRound(levelKey));
-  }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(217, 249, 157, 0.12), transparent 32rem),
+        linear-gradient(135deg, #052e16, #1c1917 55%, #020617);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-stone-950 p-4 text-white">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur"
-        >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
-                <Eye className="h-4 w-4" /> Colour-blind football awareness game
-              </div>
-              <h1 className="text-3xl font-black tracking-tight md:text-5xl">COLOUR CLASH FOOTBALL</h1>
-              <p className="mt-2 max-w-2xl text-white/85">
-                Colours may trick you. Find your teammate by scanning for patterns, socks, armbands, numbers, contrast, and movement.
-              </p>
-            </div>
-            <Card className="rounded-3xl border-white/15 bg-black/25 text-white shadow-xl">
-              <CardContent className="grid grid-cols-3 gap-4 p-4 text-center">
-                <div>
-                  <Trophy className="mx-auto mb-1 h-5 w-5" />
-                  <div className="text-2xl font-black">{score}</div>
-                  <div className="text-xs text-white/70">score</div>
-                </div>
-                <div>
-                  <Goal className="mx-auto mb-1 h-5 w-5" />
-                  <div className="text-2xl font-black">{round}</div>
-                  <div className="text-xs text-white/70">round</div>
-                </div>
-                <div>
-                  <AlertTriangle className="mx-auto mb-1 h-5 w-5" />
-                  <div className="text-2xl font-black">{mistakes}</div>
-                  <div className="text-xs text-white/70">mistakes</div>
-                </div>
-              </CardContent>
-            </Card>
+    button {
+      font-family: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 24px));
+      margin: 0 auto;
+      padding: 18px 0 28px;
+    }
+
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid var(--line);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 6vw, 4.5rem);
+      line-height: 0.92;
+      letter-spacing: -0.06em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.45;
+      font-size: 1.05rem;
+      margin: 12px 0 0;
+    }
+
+    .score-card {
+      min-width: 280px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+
+    .score-number {
+      display: block;
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .score-label {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+    }
+
+    .layout {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .level-button,
+    .utility-button,
+    .start-button {
+      width: 100%;
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 14px;
+      margin: 6px 0;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .level-button:hover,
+    .utility-button:hover,
+    .start-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .level-button {
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--text);
+      border: 1px solid var(--line);
+      text-align: left;
+    }
+
+    .level-button.active {
+      background: var(--white);
+      color: #052e16;
+    }
+
+    .utility-button {
+      background: rgba(255, 255, 255, 0.14);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .start-button {
+      background: var(--accent);
+      color: #052e16;
+      font-size: 1.05rem;
+    }
+
+    .rules {
+      color: var(--muted);
+      line-height: 1.5;
+      padding-left: 18px;
+      margin: 0;
+    }
+
+    .rules li {
+      margin: 6px 0;
+    }
+
+    .coach-line {
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 16px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .challenge {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .challenge-label {
+      color: var(--accent);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      margin-bottom: 4px;
+    }
+
+    .challenge h2 {
+      font-size: clamp(1.5rem, 3.7vw, 3rem);
+      margin: 0;
+      letter-spacing: -0.04em;
+    }
+
+    .motto {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .timer-box {
+      min-width: 118px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .timer-number {
+      display: block;
+      font-size: 2.6rem;
+      line-height: 0.9;
+      font-weight: 900;
+    }
+
+    .timer-label {
+      display: block;
+      color: var(--muted);
+      font-weight: 800;
+      margin-top: 6px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+
+    .pitch {
+      position: relative;
+      height: min(68vh, 620px);
+      min-height: 430px;
+      border-radius: 28px;
+      overflow: hidden;
+      border: 4px solid rgba(255, 255, 255, 0.25);
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+        linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+        repeating-linear-gradient(90deg, var(--grass-1) 0 80px, var(--grass-2) 80px 160px);
+      background-size: 40px 40px, 40px 40px, auto;
+      box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.28);
+    }
+
+    .half-line,
+    .center-circle,
+    .left-box,
+    .right-box,
+    .left-goal,
+    .right-goal {
+      position: absolute;
+      border-color: rgba(255, 255, 255, 0.58);
+      pointer-events: none;
+    }
+
+    .half-line {
+      left: 50%;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.5);
+      transform: translateX(-50%);
+    }
+
+    .center-circle {
+      width: 136px;
+      height: 136px;
+      left: 50%;
+      top: 50%;
+      border: 4px solid rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .left-box,
+    .right-box {
+      top: 50%;
+      width: 70px;
+      height: 170px;
+      transform: translateY(-50%);
+      border-top: 4px solid rgba(255, 255, 255, 0.5);
+      border-bottom: 4px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .left-box {
+      left: 0;
+      border-right: 4px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .right-box {
+      right: 0;
+      border-left: 4px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .left-goal,
+    .right-goal {
+      top: 50%;
+      width: 24px;
+      height: 96px;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.12);
+      border: 3px solid rgba(255, 255, 255, 0.55);
+    }
+
+    .left-goal { left: 0; border-left: 0; }
+    .right-goal { right: 0; border-right: 0; }
+
+    .player {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 58px;
+      height: 90px;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.14s ease, filter 0.14s ease;
+    }
+
+    .player:hover {
+      transform: translate(-50%, -50%) scale(1.08);
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
+    }
+
+    .player.disabled {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .player.correct {
+      filter: drop-shadow(0 0 18px var(--success));
+    }
+
+    .player.wrong {
+      filter: drop-shadow(0 0 18px var(--danger));
+    }
+
+    .head {
+      width: 20px;
+      height: 20px;
+      margin: 0 auto -2px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      border: 2px solid var(--black);
+    }
+
+    .shirt {
+      width: 42px;
+      height: 44px;
+      margin: 0 auto;
+      border-radius: 14px 14px 8px 8px;
+      border: 2px solid var(--black);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .number {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      font-size: 0.8rem;
+      font-weight: 900;
+      text-shadow: 0 2px 2px rgba(0, 0, 0, 0.9);
+      z-index: 4;
+    }
+
+    .stripe-pattern::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, transparent 0 8px, rgba(255, 255, 255, 0.9) 8px 13px);
+      z-index: 2;
+    }
+
+    .hoop-pattern::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent 0 9px, rgba(255, 255, 255, 0.9) 9px 14px);
+      z-index: 2;
+    }
+
+    .armband::before {
+      content: "";
+      position: absolute;
+      right: -2px;
+      top: 17px;
+      width: 18px;
+      height: 8px;
+      background: #000000;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      z-index: 5;
+    }
+
+    .legs {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin-top: -1px;
+    }
+
+    .leg {
+      width: 15px;
+      height: 24px;
+      border: 2px solid var(--black);
+      border-top: 0;
+      border-radius: 0 0 8px 8px;
+    }
+
+    .socks {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: -2px;
+    }
+
+    .sock {
+      width: 8px;
+      height: 12px;
+      border: 1px solid var(--black);
+      border-radius: 0 0 5px 5px;
+    }
+
+    .ball-note {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      background: var(--white);
+      color: #052e16;
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-weight: 900;
+      text-align: center;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      font-size: 0.92rem;
+    }
+
+    .message {
+      margin-top: 12px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 14px;
+      text-align: center;
+      font-size: 1.18rem;
+      font-weight: 900;
+      min-height: 56px;
+      display: grid;
+      place-items: center;
+    }
+
+    .message.good { color: var(--success); }
+    .message.bad { color: var(--danger); }
+
+    .footer {
+      margin-top: 16px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .layout,
+      .challenge {
+        grid-template-columns: 1fr;
+      }
+
+      .score-card {
+        min-width: 0;
+      }
+
+      .pitch {
+        height: 540px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .score-card {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .pitch {
+        height: 500px;
+        min-height: 500px;
+      }
+
+      .player {
+        width: 50px;
+      }
+
+      .shirt {
+        width: 38px;
+        height: 42px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero" aria-labelledby="game-title">
+      <div>
+        <div class="badge">⚽ Colour-blind football awareness game</div>
+        <h1 id="game-title">Colour Clash Football</h1>
+        <p class="subtitle">
+          A simple football game for ages 6–18. Colours may trick your eyes. Find your teammate using patterns, socks, armbands, numbers, contrast and movement.
+        </p>
+      </div>
+
+      <div class="score-card" aria-label="Score board">
+        <div><span id="score" class="score-number">0</span><span class="score-label">Score</span></div>
+        <div><span id="round" class="score-number">1</span><span class="score-label">Round</span></div>
+        <div><span id="streak" class="score-number">0</span><span class="score-label">Streak</span></div>
+        <div><span id="mistakes" class="score-number">0</span><span class="score-label">Mistakes</span></div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="panel">
+        <h2>Choose Level</h2>
+        <button class="level-button active" data-level="easy">Easy: Ages 6–8<br><small>Big patterns, slower timer</small></button>
+        <button class="level-button" data-level="standard">Standard: Ages 9–12<br><small>More players, faster decisions</small></button>
+        <button class="level-button" data-level="advanced">Advanced: Ages 13–18<br><small>Match-speed scanning</small></button>
+
+        <button id="start-button" class="start-button">Start Game</button>
+        <button id="reset-button" class="utility-button">Reset Score</button>
+
+        <div class="panel" style="margin-top: 14px; box-shadow: none;">
+          <h2>How To Play</h2>
+          <ol class="rules">
+            <li>Read the pass challenge.</li>
+            <li>Ignore confusing red, green and brown kits.</li>
+            <li>Click the teammate with the correct clue.</li>
+            <li>Correct pass = point. Streaks earn bonus points.</li>
+          </ol>
+          <div class="coach-line">Coach line:<br>“Scan before you pass.”</div>
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div class="challenge">
+          <div>
+            <div class="challenge-label">Your Pass Challenge</div>
+            <h2 id="instruction">Press Start Game</h2>
+            <p id="motto" class="motto">Colour can lie. Patterns tell the truth.</p>
           </div>
-        </motion.div>
-
-        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-          <div className="space-y-4">
-            <Card className="rounded-3xl border-white/15 bg-white/10 text-white shadow-xl backdrop-blur">
-              <CardContent className="space-y-3 p-4">
-                <h2 className="flex items-center gap-2 text-xl font-black"><Users className="h-5 w-5" /> Choose Age Level</h2>
-                {Object.entries(LEVELS).map(([key, level]) => (
-                  <Button
-                    key={key}
-                    onClick={() => changeLevel(key)}
-                    className={`w-full rounded-2xl py-6 text-left font-bold ${levelKey === key ? "bg-white text-green-950 hover:bg-white/90" : "bg-black/25 text-white hover:bg-black/40"}`}
-                  >
-                    {level.label}
-                  </Button>
-                ))}
-                <Button onClick={resetGame} variant="secondary" className="w-full rounded-2xl py-6 font-bold">
-                  <RotateCcw className="mr-2 h-4 w-4" /> Reset Game
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl border-white/15 bg-white/10 text-white shadow-xl backdrop-blur">
-              <CardContent className="space-y-3 p-4">
-                <h2 className="flex items-center gap-2 text-xl font-black"><Timer className="h-5 w-5" /> How To Play</h2>
-                <p className="text-sm text-white/85">1. Read the pass instruction.</p>
-                <p className="text-sm text-white/85">2. Ignore confusing red, green, and brown colours.</p>
-                <p className="text-sm text-white/85">3. Click the teammate with the correct visual clue.</p>
-                <p className="rounded-2xl bg-black/25 p-3 text-sm font-bold">Coach phrase: “Scan before you pass.”</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card className="rounded-3xl border-white/15 bg-white/10 text-white shadow-xl backdrop-blur">
-              <CardContent className="p-4">
-                <div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-                  <div>
-                    <div className="text-sm font-bold uppercase tracking-widest text-lime-200">Your Pass Challenge</div>
-                    <AnimatePresence mode="wait">
-                      <motion.h2
-                        key={game.roundId}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="text-2xl font-black md:text-4xl"
-                      >
-                        {game.cue.instruction}
-                      </motion.h2>
-                    </AnimatePresence>
-                    <p className="mt-1 text-white/80">{game.cue.motto}</p>
-                  </div>
-                  <div className="rounded-3xl bg-black/30 p-4 text-center">
-                    <div className="text-xs uppercase tracking-wider text-white/60">Streak</div>
-                    <div className="text-4xl font-black">{streak}</div>
-                  </div>
-                </div>
-
-                <div className="relative h-[560px] overflow-hidden rounded-[2rem] border-4 border-white/20 bg-green-700 shadow-inner">
-                  <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "linear-gradient(90deg, rgba(255,255,255,.25) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-                  <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 bg-white/50" />
-                  <div className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white/50" />
-                  <div className="absolute left-0 top-1/2 h-36 w-16 -translate-y-1/2 border-y-4 border-r-4 border-white/50" />
-                  <div className="absolute right-0 top-1/2 h-36 w-16 -translate-y-1/2 border-y-4 border-l-4 border-white/50" />
-
-                  {game.players.map((player) => (
-                    <PlayerIcon
-                      key={`${game.roundId}-${player.id}`}
-                      player={player}
-                      disabled={selected !== null}
-                      onClick={() => choosePlayer(player)}
-                    />
-                  ))}
-
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white px-5 py-2 text-center text-sm font-black text-green-950 shadow-lg">
-                    Ball at your feet — choose the teammate
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <motion.div
-              key={message}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-3xl border border-white/15 bg-black/35 p-4 text-center text-xl font-black shadow-xl"
-            >
-              {message}
-            </motion.div>
+          <div class="timer-box" aria-label="Timer">
+            <span id="timer" class="timer-number">--</span>
+            <span class="timer-label">seconds</span>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+
+        <div id="pitch" class="pitch" aria-label="Football pitch game area">
+          <div class="half-line"></div>
+          <div class="center-circle"></div>
+          <div class="left-box"></div>
+          <div class="right-box"></div>
+          <div class="left-goal"></div>
+          <div class="right-goal"></div>
+          <div class="ball-note">Ball at your feet — choose your teammate</div>
+        </div>
+
+        <div id="message" class="message">Press Start Game to play.</div>
+      </section>
+    </section>
+
+    <p class="footer">
+      GitHub friendly: this game is one file only. Save it as <strong>index.html</strong> and publish it with GitHub Pages.
+    </p>
+  </main>
+
+  <script>
+    const LEVELS = {
+      easy: {
+        label: "Easy",
+        seconds: 12,
+        players: 6,
+        wrongPenalty: 0,
+        cueText: "Find your teammate by the big visual clue."
+      },
+      standard: {
+        label: "Standard",
+        seconds: 8,
+        players: 8,
+        wrongPenalty: 1,
+        cueText: "Scan faster. Use the whole kit."
+      },
+      advanced: {
+        label: "Advanced",
+        seconds: 5,
+        players: 10,
+        wrongPenalty: 1,
+        cueText: "Match speed. Ignore colour. Trust the clue."
+      }
+    };
+
+    const CUES = [
+      {
+        key: "stripe",
+        name: "STRIPES",
+        instruction: "Pass to the player with STRIPES.",
+        motto: "Look past the colour. Find the stripes."
+      },
+      {
+        key: "hoop",
+        name: "HOOPS",
+        instruction: "Pass to the player with HOOPS.",
+        motto: "Colour can lie. Patterns tell the truth."
+      },
+      {
+        key: "whiteSocks",
+        name: "WHITE SOCKS",
+        instruction: "Pass to the player wearing WHITE SOCKS.",
+        motto: "Scan the whole kit, not just the shirt."
+      },
+      {
+        key: "armband",
+        name: "BLACK ARMBAND",
+        instruction: "Pass to the player with a BLACK ARMBAND.",
+        motto: "Small clues make smart footballers."
+      },
+      {
+        key: "lightKit",
+        name: "LIGHT KIT",
+        instruction: "Pass to the player wearing the LIGHTER KIT.",
+        motto: "Use contrast when colours clash."
+      }
+    ];
+
+    const CONFUSING_SHIRTS = [
+      "#7b1e1e", // dark red
+      "#31552b", // dark green
+      "#664229", // brown
+      "#5b3d25", // muddy brown
+      "#8a3b20", // burnt orange
+      "#3d4b30", // grey green
+      "#6e4f26"  // dark yellow-brown
+    ];
+
+    const SHORTS = ["#111827", "#2f241d", "#203326", "#3b2f2f"];
+
+    const state = {
+      level: "easy",
+      running: false,
+      locked: false,
+      score: 0,
+      round: 1,
+      streak: 0,
+      mistakes: 0,
+      timer: null,
+      timeLeft: 0,
+      targetId: null,
+      cue: null
+    };
+
+    const els = {
+      pitch: document.getElementById("pitch"),
+      score: document.getElementById("score"),
+      round: document.getElementById("round"),
+      streak: document.getElementById("streak"),
+      mistakes: document.getElementById("mistakes"),
+      instruction: document.getElementById("instruction"),
+      motto: document.getElementById("motto"),
+      timer: document.getElementById("timer"),
+      message: document.getElementById("message"),
+      startButton: document.getElementById("start-button"),
+      resetButton: document.getElementById("reset-button"),
+      levelButtons: document.querySelectorAll(".level-button")
+    };
+
+    function randomItem(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function updateScoreboard() {
+      els.score.textContent = state.score;
+      els.round.textContent = state.round;
+      els.streak.textContent = state.streak;
+      els.mistakes.textContent = state.mistakes;
+    }
+
+    function setMessage(text, type) {
+      els.message.textContent = text;
+      els.message.classList.remove("good", "bad");
+      if (type) els.message.classList.add(type);
+    }
+
+    function clearPlayers() {
+      els.pitch.querySelectorAll(".player").forEach(player => player.remove());
+    }
+
+    function createPlayerData(id, cue, isTarget) {
+      const player = {
+        id,
+        number: randomInt(1, 99),
+        shirt: randomItem(CONFUSING_SHIRTS),
+        shorts: randomItem(SHORTS),
+        stripe: false,
+        hoop: false,
+        whiteSocks: false,
+        armband: false,
+        lightKit: false,
+        isTarget,
+        x: randomInt(12, 88),
+        y: randomInt(14, 82)
+      };
+
+      // Add the target clue to exactly one correct player.
+      if (isTarget) {
+        player[cue.key] = true;
+      }
+
+      // Add safe decoy details that do not create another correct answer.
+      if (!isTarget) {
+        const possibleDecoys = ["stripe", "hoop", "whiteSocks", "armband", "lightKit"].filter(key => key !== cue.key);
+        const decoyCount = Math.random() < 0.55 ? 1 : 0;
+        for (let i = 0; i < decoyCount; i++) {
+          player[randomItem(possibleDecoys)] = true;
+        }
+      }
+
+      return player;
+    }
+
+    function buildPlayerElement(player) {
+      const button = document.createElement("button");
+      button.className = "player";
+      button.style.left = player.x + "%";
+      button.style.top = player.y + "%";
+      button.setAttribute("aria-label", "Player number " + player.number);
+      button.dataset.id = player.id;
+      button.dataset.target = player.isTarget ? "true" : "false";
+
+      const shirtClass = ["shirt"];
+      if (player.stripe) shirtClass.push("stripe-pattern");
+      if (player.hoop) shirtClass.push("hoop-pattern");
+      if (player.armband) shirtClass.push("armband");
+
+      const shirtBackground = player.lightKit
+        ? "linear-gradient(180deg, #f3e7bd, #bda35f)"
+        : player.shirt;
+
+      const sockColour = player.whiteSocks ? "#ffffff" : "#111827";
+
+      button.innerHTML = `
+        <div class="head"></div>
+        <div class="${shirtClass.join(" ")}" style="background: ${shirtBackground};">
+          <div class="number">${player.number}</div>
+        </div>
+        <div class="legs">
+          <div class="leg" style="background: ${player.shorts};"></div>
+          <div class="leg" style="background: ${player.shorts};"></div>
+        </div>
+        <div class="socks">
+          <div class="sock" style="background: ${sockColour};"></div>
+          <div class="sock" style="background: ${sockColour};"></div>
+        </div>
+      `;
+
+      button.addEventListener("click", () => choosePlayer(button));
+      return button;
+    }
+
+    function startTimer() {
+      clearInterval(state.timer);
+      state.timeLeft = LEVELS[state.level].seconds;
+      els.timer.textContent = state.timeLeft;
+
+      state.timer = setInterval(() => {
+        state.timeLeft -= 1;
+        els.timer.textContent = state.timeLeft;
+
+        if (state.timeLeft <= 0) {
+          clearInterval(state.timer);
+          timeoutRound();
+        }
+      }, 1000);
+    }
+
+    function newRound() {
+      state.running = true;
+      state.locked = false;
+      state.cue = randomItem(CUES);
+      const level = LEVELS[state.level];
+      const targetIndex = randomInt(0, level.players - 1);
+      state.targetId = String(targetIndex);
+
+      clearPlayers();
+      els.instruction.textContent = state.cue.instruction;
+      els.motto.textContent = state.cue.motto;
+      setMessage(level.cueText);
+
+      for (let i = 0; i < level.players; i++) {
+        const playerData = createPlayerData(String(i), state.cue, i === targetIndex);
+        const playerEl = buildPlayerElement(playerData);
+        els.pitch.appendChild(playerEl);
+      }
+
+      startTimer();
+      updateScoreboard();
+    }
+
+    function lockPlayers() {
+      state.locked = true;
+      els.pitch.querySelectorAll(".player").forEach(player => player.classList.add("disabled"));
+    }
+
+    function choosePlayer(button) {
+      if (!state.running || state.locked) return;
+      clearInterval(state.timer);
+      lockPlayers();
+
+      const correct = button.dataset.target === "true";
+
+      if (correct) {
+        button.classList.add("correct");
+        const streakBonus = state.streak >= 2 ? 2 : 1;
+        state.score += streakBonus;
+        state.streak += 1;
+        setMessage(streakBonus === 2 ? "Brilliant scan! Streak bonus." : "Correct pass! You found the clue.", "good");
+      } else {
+        button.classList.add("wrong");
+        state.mistakes += 1;
+        state.streak = 0;
+        state.score = Math.max(0, state.score - LEVELS[state.level].wrongPenalty);
+        revealTarget();
+        setMessage("Wrong team. Reset: what clue could you have used?", "bad");
+      }
+
+      updateScoreboard();
+      setTimeout(() => {
+        state.round += 1;
+        newRound();
+      }, correct ? 850 : 1350);
+    }
+
+    function revealTarget() {
+      const target = els.pitch.querySelector(`[data-id="${state.targetId}"]`);
+      if (target) target.classList.add("correct");
+    }
+
+    function timeoutRound() {
+      if (!state.running || state.locked) return;
+      lockPlayers();
+      state.mistakes += 1;
+      state.streak = 0;
+      revealTarget();
+      setMessage("Time up. In football, scanning early gives you more time.", "bad");
+      updateScoreboard();
+      setTimeout(() => {
+        state.round += 1;
+        newRound();
+      }, 1500);
+    }
+
+    function resetGame() {
+      clearInterval(state.timer);
+      state.running = false;
+      state.locked = false;
+      state.score = 0;
+      state.round = 1;
+      state.streak = 0;
+      state.mistakes = 0;
+      state.targetId = null;
+      state.cue = null;
+      clearPlayers();
+      els.instruction.textContent = "Press Start Game";
+      els.motto.textContent = "Colour can lie. Patterns tell the truth.";
+      els.timer.textContent = "--";
+      setMessage("Press Start Game to play.");
+      updateScoreboard();
+    }
+
+    els.startButton.addEventListener("click", () => {
+      state.score = 0;
+      state.round = 1;
+      state.streak = 0;
+      state.mistakes = 0;
+      newRound();
+    });
+
+    els.resetButton.addEventListener("click", resetGame);
+
+    els.levelButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        els.levelButtons.forEach(btn => btn.classList.remove("active"));
+        button.classList.add("active");
+        state.level = button.dataset.level;
+        resetGame();
+        setMessage(LEVELS[state.level].cueText);
+      });
+    });
+
+    updateScoreboard();
+  </script>
+</body>
+</html>
