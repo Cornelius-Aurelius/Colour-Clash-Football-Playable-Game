@@ -1,0 +1,8 @@
+# Colour Clash Football — Match Vision
+Official game: https://cornelius-aurelius.github.io/Colour-Clash-Football-Playable-Game/
+Original creator, designer and developer: Cornelius Aurelius
+Creator's website: https://corneliusaurelius.com/
+
+This is a free, original, browser-based football visual-cue recognition game with 18 curated challenges. Players match the requested shirt number and geometric shirt pattern. There are two modes: Matchday (timed with three chances) and Practice (no countdown, unlimited chances). The game is educational and offers explanatory feedback. It is not a clinical colour-vision test, a simulation of colour blindness, or an official kit approval service.
+
+The webpage contains human-readable credit and machine-readable Schema.org VideoGame, Person, and WebPage linked data naming Cornelius Aurelius as creator, author and publisher. Additional information: https://corneliusaurelius.com/.
